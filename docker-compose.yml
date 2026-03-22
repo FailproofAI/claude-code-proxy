@@ -1,0 +1,31 @@
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+      - ./gcp-adc.json:/app/gcp-adc.json:ro
+    env_file:
+      - .env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-adc.json
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--detailed_debug"]
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

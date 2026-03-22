@@ -1,0 +1,91 @@
+# litellm_config.yaml
+#
+# Model names match what Claude Code sends to the API (firstParty model IDs).
+# Each model has Anthropic, Bedrock, and Vertex AI deployments under the same name.
+# The router load-balances within each group with automatic failover on errors.
+
+model_list:
+
+  # ── Claude Opus 4.6 ────────────────────────────────────────────────────────
+  - model_name: claude-opus-4-6
+    litellm_params:
+      model: anthropic/claude-opus-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+      weight: 1
+
+  - model_name: claude-opus-4-6
+    litellm_params:
+      model: bedrock/us.anthropic.claude-opus-4-6-v1
+      aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+      aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+      aws_region_name: os.environ/AWS_REGION
+      weight: 1
+
+  - model_name: claude-opus-4-6
+    litellm_params:
+      model: vertex_ai/claude-opus-4-6
+      vertex_project: os.environ/VERTEX_PROJECT
+      vertex_location: os.environ/VERTEX_LOCATION
+      weight: 10
+
+  # ── Claude Sonnet 4.6 ──────────────────────────────────────────────────────
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+      weight: 1
+
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: bedrock/us.anthropic.claude-sonnet-4-6
+      aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+      aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+      aws_region_name: os.environ/AWS_REGION
+      weight: 1
+
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: vertex_ai/claude-sonnet-4-6
+      vertex_project: os.environ/VERTEX_PROJECT
+      vertex_location: os.environ/VERTEX_LOCATION
+      weight: 10
+
+  # ── Claude Haiku 4.5 ───────────────────────────────────────────────────────
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+      weight: 1
+
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0
+      aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+      aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+      aws_region_name: os.environ/AWS_REGION
+      weight: 1
+
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: vertex_ai/claude-haiku-4-5@20251001
+      vertex_project: os.environ/VERTEX_PROJECT
+      vertex_location: os.environ/VERTEX_LOCATION
+      weight: 10
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+  # Strip unknown beta headers before forwarding to providers
+  # This prevents Claude Code beta flags from breaking Bedrock routes
+  drop_params: true
+  store_prompts_in_spend_logs: true
+  maximum_spend_logs_retention_period: "30d"
+  maximum_spend_logs_cleanup_cron: "0 4 * * *"
+
+router_settings:
+  routing_strategy: "simple-shuffle"
+  num_retries: 2
+  optional_pre_call_checks:
+    - "session_affinity"
+  deployment_affinity_ttl_seconds: 14400

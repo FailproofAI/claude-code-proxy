@@ -1,0 +1,7 @@
+.env
+gcp-adc.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
