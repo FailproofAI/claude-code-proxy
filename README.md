@@ -6,7 +6,7 @@ A self-hosted LiteLLM proxy that gives every developer on your team Claude Code 
 
 ## What This Does
 
-- Routes Claude Code traffic through a single proxy with weighted load balancing across DigitalOcean, Bedrock, and Anthropic Direct
+- Routes Claude Code traffic through a single proxy with weighted load balancing across Bedrock and Anthropic Direct
 - Tracks per-developer cost, token usage, and model selection in PostgreSQL
 - Enforces budget limits via virtual keys
 - Enables prompt caching automatically through session affinity
@@ -23,9 +23,8 @@ Developer machines (Claude Code CLI)
         ▼
   LiteLLM Proxy (routing, auth, cost tracking)
         │
-        ├── DigitalOcean   (weight: 6  ≈ 60%)
-        ├── Anthropic      (weight: 2  ≈ 20%)
-        └── AWS Bedrock    (weight: 2  ≈ 20%)
+        ├── Anthropic      (weight: 1  ≈ 50%)
+        └── AWS Bedrock    (weight: 1  ≈ 50%)
 ```
 
 Everything runs on a single VM.
@@ -34,7 +33,7 @@ Everything runs on a single VM.
 
 - A VM with Ubuntu (any cloud provider — AWS, GCP, DigitalOcean, etc.)
 - A domain name pointed at your VM (A record)
-- API credentials for at least one Claude provider (Anthropic, GCP, AWS, or DigitalOcean)
+- API credentials for at least one Claude provider (Anthropic or AWS)
 
 ## Quick Start
 
@@ -77,7 +76,7 @@ Done. `claude` works as normal.
 
 ## Provider Setup
 
-You need credentials for **at least one** provider. Configure all four for maximum reliability and credit utilization.
+You need credentials for **at least one** provider. Configure both for maximum reliability and credit utilization.
 
 ### Anthropic Direct
 
@@ -158,25 +157,6 @@ AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1              # Region where you enabled Claude
 ```
 
-### DigitalOcean (Gradient AI)
-
-Use this to route traffic through your DigitalOcean cloud credits.
-
-1. **Create a DigitalOcean API token** with GenAI permissions:
-   - Go to [DigitalOcean API Tokens](https://cloud.digitalocean.com/account/api/tokens)
-   - Create a new token with read/write access
-   - Ensure GenAI / GPU Droplets are enabled on your account
-
-2. **Enable Claude models** in your DigitalOcean GenAI dashboard:
-   - Go to [GenAI Platform](https://cloud.digitalocean.com/gen-ai)
-   - Verify the Claude models you need are available
-
-3. **Add to your `.env`:**
-
-```bash
-GRADIENT_AI_API_KEY=dop_v1_your-token-here
-```
-
 ## Configuring Routing Weights
 
 The `weight` parameter in `litellm-config.yaml` controls what percentage of traffic goes to each provider. **Set weights to match your available cloud credit ratio.**
@@ -186,32 +166,26 @@ The `weight` parameter in `litellm-config.yaml` controls what percentage of traf
 Each model is defined once per provider under the same `model_name`. The router picks a provider using weighted random selection:
 
 ```yaml
-# Example: 60% DigitalOcean, 20% each Anthropic/AWS
-- model_name: claude-sonnet-4-6
-  litellm_params:
-    model: gradient_ai/anthropic-claude-4.6-sonnet
-    weight: 6                     # ~60% of traffic
-
+# Example: 50/50 split between Anthropic and AWS
 - model_name: claude-sonnet-4-6
   litellm_params:
     model: anthropic/claude-sonnet-4-6
-    weight: 2                     # ~20% of traffic
+    weight: 1                     # ~50% of traffic
 
 - model_name: claude-sonnet-4-6
   litellm_params:
     model: bedrock/us.anthropic.claude-sonnet-4-6
-    weight: 2                     # ~20% of traffic
+    weight: 1                     # ~50% of traffic
 ```
 
 ### Common Ratios
 
-| Scenario | DigitalOcean | Bedrock | Anthropic | Result |
-|----------|--------------|---------|-----------|--------|
-| Default (current) | 6 | 2 | 2 | 60% DO, 20% each AWS/Anthropic |
-| Equal credits | 1 | 1 | 1 | ~33% each |
-| DO only | 1 | 0 | 0 | 100% DO (remove other entries) |
-| DO + Anthropic | 3 | 0 | 1 | 75/25 (remove Bedrock entries) |
-| Anthropic only | 0 | 0 | 1 | 100% direct (remove other entries) |
+| Scenario | Bedrock | Anthropic | Result |
+|----------|---------|-----------|--------|
+| Default (current) | 1 | 1 | 50/50 |
+| Heavy AWS | 3 | 1 | 75% AWS, 25% Anthropic |
+| Anthropic only | 0 | 1 | 100% direct (remove Bedrock entries) |
+| AWS only | 1 | 0 | 100% Bedrock (remove Anthropic entries) |
 
 To change the ratio, edit `litellm-config.yaml` and restart:
 
@@ -221,7 +195,7 @@ sudo docker compose restart litellm
 
 ### Removing a Provider
 
-If you only have credentials for some providers, simply delete the model entries you don't need from `litellm-config.yaml`. For example, to use only Anthropic Direct, keep only the `anthropic/` entries and remove all `vertex_ai/`, `bedrock/`, and `gradient_ai/` entries.
+If you only have credentials for one provider, simply delete the model entries you don't need from `litellm-config.yaml`. For example, to use only Anthropic Direct, keep only the `anthropic/` entries and remove all `bedrock/` entries.
 
 ## Session Affinity
 
