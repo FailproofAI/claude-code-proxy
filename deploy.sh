@@ -46,6 +46,20 @@ log "litellm-config.yaml found"
 [ -f "$PROJECT_DIR/nginx.conf" ] || err "nginx.conf not found in $PROJECT_DIR"
 log "nginx.conf found"
 
+# Check GCP credentials type
+if [ -f "$PROJECT_DIR/gcp-adc.json" ]; then
+    log "gcp-adc.json found"
+    if grep -q '"type": "authorized_user"' "$PROJECT_DIR/gcp-adc.json" 2>/dev/null; then
+        info "WARNING: gcp-adc.json contains user credentials (type: authorized_user)"
+        info "These credentials WILL EXPIRE. Use a service account key for production."
+        info "See README.md -> Provider Setup -> Google Cloud."
+    elif grep -q '"type": "service_account"' "$PROJECT_DIR/gcp-adc.json" 2>/dev/null; then
+        log "gcp-adc.json contains service account credentials (recommended)"
+    fi
+else
+    info "gcp-adc.json not found — Vertex AI routing will not work"
+fi
+
 info "Checking DNS resolution for $DOMAIN..."
 RESOLVED_IP=$(dig +short "$DOMAIN" A 2>/dev/null || true)
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || true)

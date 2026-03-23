@@ -1,7 +1,8 @@
 # litellm_config.yaml
 #
 # Model names match what Claude Code sends to the API (firstParty model IDs).
-# Each model has Anthropic, Bedrock, and Vertex AI deployments under the same name.
+# Each model has Anthropic, Bedrock, Vertex AI, and DigitalOcean deployments
+# under the same name.
 # The router load-balances within each group with automatic failover on errors.
 
 model_list:
@@ -26,7 +27,13 @@ model_list:
       model: vertex_ai/claude-opus-4-6
       vertex_project: os.environ/VERTEX_PROJECT
       vertex_location: os.environ/VERTEX_LOCATION
-      weight: 10
+      weight: 6
+
+  - model_name: claude-opus-4-6
+    litellm_params:
+      model: gradient_ai/anthropic-claude-opus-4.6
+      api_key: os.environ/GRADIENT_AI_API_KEY
+      weight: 2
 
   # ── Claude Sonnet 4.6 ──────────────────────────────────────────────────────
   - model_name: claude-sonnet-4-6
@@ -48,7 +55,13 @@ model_list:
       model: vertex_ai/claude-sonnet-4-6
       vertex_project: os.environ/VERTEX_PROJECT
       vertex_location: os.environ/VERTEX_LOCATION
-      weight: 10
+      weight: 6
+
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: gradient_ai/anthropic-claude-4.6-sonnet
+      api_key: os.environ/GRADIENT_AI_API_KEY
+      weight: 2
 
   # ── Claude Haiku 4.5 ───────────────────────────────────────────────────────
   - model_name: claude-haiku-4-5-20251001
@@ -70,7 +83,13 @@ model_list:
       model: vertex_ai/claude-haiku-4-5@20251001
       vertex_project: os.environ/VERTEX_PROJECT
       vertex_location: os.environ/VERTEX_LOCATION
-      weight: 10
+      weight: 6
+
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: gradient_ai/anthropic-claude-haiku-4.5
+      api_key: os.environ/GRADIENT_AI_API_KEY
+      weight: 2
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -89,3 +108,5 @@ router_settings:
   optional_pre_call_checks:
     - "session_affinity"
   deployment_affinity_ttl_seconds: 14400
+  allowed_fails: 3
+  cooldown_time: 60

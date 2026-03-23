@@ -6,7 +6,7 @@ A self-hosted LiteLLM proxy that gives every developer on your team Claude Code 
 
 ## What This Does
 
-- Routes Claude Code traffic through a single proxy with weighted load balancing across Vertex AI, Bedrock, and Anthropic Direct
+- Routes Claude Code traffic through a single proxy with weighted load balancing across Vertex AI, Bedrock, DigitalOcean, and Anthropic Direct
 - Tracks per-developer cost, token usage, and model selection in PostgreSQL
 - Enforces budget limits via virtual keys
 - Enables prompt caching automatically through session affinity
@@ -23,9 +23,10 @@ Developer machines (Claude Code CLI)
         ▼
   LiteLLM Proxy (routing, auth, cost tracking)
         │
-        ├── Vertex AI    (weight: 10)
-        ├── AWS Bedrock   (weight: 1)
-        └── Anthropic     (weight: 1)
+        ├── Vertex AI      (weight: 6  ≈ 60%)
+        ├── DigitalOcean   (weight: 2  ≈ 20%)
+        ├── AWS Bedrock    (weight: 1  ≈ 10%)
+        └── Anthropic      (weight: 1  ≈ 10%)
 ```
 
 Everything runs on a single VM.
@@ -34,7 +35,7 @@ Everything runs on a single VM.
 
 - A VM with Ubuntu (any cloud provider — AWS, GCP, DigitalOcean, etc.)
 - A domain name pointed at your VM (A record)
-- API credentials for at least one Claude provider
+- API credentials for at least one Claude provider (Anthropic, GCP, AWS, or DigitalOcean)
 
 ## Quick Start
 
@@ -77,7 +78,7 @@ Done. `claude` works as normal.
 
 ## Provider Setup
 
-You need credentials for **at least one** provider. Configure all three for maximum reliability and credit utilization.
+You need credentials for **at least one** provider. Configure all four for maximum reliability and credit utilization.
 
 ### Anthropic Direct
 
@@ -103,21 +104,19 @@ gcloud services enable aiplatform.googleapis.com
 
 2. **Enable the Claude models** you need. Go to [Vertex AI Model Garden](https://console.cloud.google.com/vertex-ai/model-garden) and enable Claude Opus, Sonnet, and/or Haiku.
 
-3. **Create Application Default Credentials:**
+3. **Create a service account and download its key:**
 
 ```bash
-# Option A: User credentials (development)
-gcloud auth application-default login
-cp ~/.config/gcloud/application_default_credentials.json ./gcp-adc.json
-
-# Option B: Service account (production, recommended)
-gcloud iam service-accounts create litellm-proxy
+gcloud iam service-accounts create litellm-proxy \
+    --display-name="LiteLLM Proxy Service Account"
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
     --member="serviceAccount:litellm-proxy@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
     --role="roles/aiplatform.user"
 gcloud iam service-accounts keys create ./gcp-adc.json \
     --iam-account=litellm-proxy@YOUR_PROJECT_ID.iam.gserviceaccount.com
 ```
+
+> **Do not use `gcloud auth application-default login`** for production. User credentials contain an OAuth2 refresh token that expires, causing `500 "Reauthentication is needed"` errors. Service account keys do not expire.
 
 4. **Add to your `.env`:**
 
@@ -160,41 +159,65 @@ AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1              # Region where you enabled Claude
 ```
 
+### DigitalOcean (Gradient AI)
+
+Use this to route traffic through your DigitalOcean cloud credits.
+
+1. **Create a DigitalOcean API token** with GenAI permissions:
+   - Go to [DigitalOcean API Tokens](https://cloud.digitalocean.com/account/api/tokens)
+   - Create a new token with read/write access
+   - Ensure GenAI / GPU Droplets are enabled on your account
+
+2. **Enable Claude models** in your DigitalOcean GenAI dashboard:
+   - Go to [GenAI Platform](https://cloud.digitalocean.com/gen-ai)
+   - Verify the Claude models you need are available
+
+3. **Add to your `.env`:**
+
+```bash
+GRADIENT_AI_API_KEY=dop_v1_your-token-here
+```
+
 ## Configuring Routing Weights
 
 The `weight` parameter in `litellm-config.yaml` controls what percentage of traffic goes to each provider. **Set weights to match your available cloud credit ratio.**
 
 ### How Weights Work
 
-Each model is defined three times — once per provider — under the same `model_name`. The router picks a provider using weighted random selection:
+Each model is defined once per provider under the same `model_name`. The router picks a provider using weighted random selection:
 
 ```yaml
-# Example: 10x more GCP credits than AWS or Anthropic
+# Example: 60% GCP, 20% DigitalOcean, 10% each AWS/Anthropic
 - model_name: claude-sonnet-4-6
   litellm_params:
     model: vertex_ai/claude-sonnet-4-6
-    weight: 10                    # ~83% of traffic
+    weight: 6                     # ~60% of traffic
+
+- model_name: claude-sonnet-4-6
+  litellm_params:
+    model: gradient_ai/anthropic-claude-4.6-sonnet
+    weight: 2                     # ~20% of traffic
 
 - model_name: claude-sonnet-4-6
   litellm_params:
     model: bedrock/us.anthropic.claude-sonnet-4-6
-    weight: 1                     # ~8% of traffic
+    weight: 1                     # ~10% of traffic
 
 - model_name: claude-sonnet-4-6
   litellm_params:
     model: anthropic/claude-sonnet-4-6
-    weight: 1                     # ~8% of traffic
+    weight: 1                     # ~10% of traffic
 ```
 
 ### Common Ratios
 
-| Scenario | Vertex | Bedrock | Anthropic | Result |
-|----------|--------|---------|-----------|--------|
-| Heavy GCP credits | 10 | 1 | 1 | ~83% GCP, ~8% each AWS/Anthropic |
-| Equal credits | 1 | 1 | 1 | ~33% each |
-| GCP only | 1 | 0 | 0 | 100% GCP (remove other entries) |
-| GCP + AWS, no direct | 5 | 5 | 0 | 50/50 (remove Anthropic entries) |
-| Anthropic only | 0 | 0 | 1 | 100% direct (remove other entries) |
+| Scenario | Vertex | DigitalOcean | Bedrock | Anthropic | Result |
+|----------|--------|--------------|---------|-----------|--------|
+| Default (current) | 6 | 2 | 1 | 1 | 60% GCP, 20% DO, 10% each AWS/Anthropic |
+| Equal credits | 1 | 1 | 1 | 1 | 25% each |
+| GCP only | 1 | 0 | 0 | 0 | 100% GCP (remove other entries) |
+| GCP + DO | 3 | 1 | 0 | 0 | 75/25 (remove other entries) |
+| Anthropic only | 0 | 0 | 0 | 1 | 100% direct (remove other entries) |
 
 To change the ratio, edit `litellm-config.yaml` and restart:
 
@@ -204,7 +227,7 @@ sudo docker compose restart litellm
 
 ### Removing a Provider
 
-If you only have credentials for one or two providers, simply delete the model entries you don't need from `litellm-config.yaml`. For example, to use only Anthropic Direct, keep only the `anthropic/` entries and remove all `vertex_ai/` and `bedrock/` entries.
+If you only have credentials for some providers, simply delete the model entries you don't need from `litellm-config.yaml`. For example, to use only Anthropic Direct, keep only the `anthropic/` entries and remove all `vertex_ai/`, `bedrock/`, and `gradient_ai/` entries.
 
 ## Session Affinity
 
@@ -221,6 +244,20 @@ The Lua script (`extract_session.lua`) automatically extracts Claude Code's `ses
 | `extract_session.lua` | Extracts session ID from request body for routing affinity |
 | `setup-claude-session.sh` | Optional shell wrapper for session ID injection |
 | `env.example` | Template for required environment variables |
+
+## Troubleshooting
+
+### "Reauthentication is needed" error from Vertex AI
+
+If you see `500 {"error":{"message":"Reauthentication is needed..."}}`, your `gcp-adc.json` contains user credentials (from `gcloud auth application-default login`) whose OAuth2 refresh token has expired.
+
+**Fix:** Replace `gcp-adc.json` with a service account key (see [Google Cloud setup](#google-cloud-vertex-ai) above), then restart:
+
+```bash
+sudo docker compose restart litellm
+```
+
+The router's `allowed_fails` / `cooldown_time` settings automatically route traffic to healthy providers while Vertex is failing, but you should still replace the credentials to restore full capacity.
 
 ## License
 
