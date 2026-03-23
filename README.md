@@ -6,7 +6,7 @@ A self-hosted LiteLLM proxy that gives every developer on your team Claude Code 
 
 ## What This Does
 
-- Routes Claude Code traffic through a single proxy with weighted load balancing across Vertex AI, Bedrock, DigitalOcean, and Anthropic Direct
+- Routes Claude Code traffic through a single proxy with weighted load balancing across DigitalOcean, Bedrock, and Anthropic Direct
 - Tracks per-developer cost, token usage, and model selection in PostgreSQL
 - Enforces budget limits via virtual keys
 - Enables prompt caching automatically through session affinity
@@ -23,10 +23,9 @@ Developer machines (Claude Code CLI)
         ▼
   LiteLLM Proxy (routing, auth, cost tracking)
         │
-        ├── Vertex AI      (weight: 6  ≈ 60%)
-        ├── DigitalOcean   (weight: 2  ≈ 20%)
-        ├── AWS Bedrock    (weight: 1  ≈ 10%)
-        └── Anthropic      (weight: 1  ≈ 10%)
+        ├── DigitalOcean   (weight: 6  ≈ 60%)
+        ├── Anthropic      (weight: 2  ≈ 20%)
+        └── AWS Bedrock    (weight: 2  ≈ 20%)
 ```
 
 Everything runs on a single VM.
@@ -187,37 +186,32 @@ The `weight` parameter in `litellm-config.yaml` controls what percentage of traf
 Each model is defined once per provider under the same `model_name`. The router picks a provider using weighted random selection:
 
 ```yaml
-# Example: 60% GCP, 20% DigitalOcean, 10% each AWS/Anthropic
+# Example: 60% DigitalOcean, 20% each Anthropic/AWS
 - model_name: claude-sonnet-4-6
   litellm_params:
-    model: vertex_ai/claude-sonnet-4-6
+    model: gradient_ai/anthropic-claude-4.6-sonnet
     weight: 6                     # ~60% of traffic
 
 - model_name: claude-sonnet-4-6
   litellm_params:
-    model: gradient_ai/anthropic-claude-4.6-sonnet
+    model: anthropic/claude-sonnet-4-6
     weight: 2                     # ~20% of traffic
 
 - model_name: claude-sonnet-4-6
   litellm_params:
     model: bedrock/us.anthropic.claude-sonnet-4-6
-    weight: 1                     # ~10% of traffic
-
-- model_name: claude-sonnet-4-6
-  litellm_params:
-    model: anthropic/claude-sonnet-4-6
-    weight: 1                     # ~10% of traffic
+    weight: 2                     # ~20% of traffic
 ```
 
 ### Common Ratios
 
-| Scenario | Vertex | DigitalOcean | Bedrock | Anthropic | Result |
-|----------|--------|--------------|---------|-----------|--------|
-| Default (current) | 6 | 2 | 1 | 1 | 60% GCP, 20% DO, 10% each AWS/Anthropic |
-| Equal credits | 1 | 1 | 1 | 1 | 25% each |
-| GCP only | 1 | 0 | 0 | 0 | 100% GCP (remove other entries) |
-| GCP + DO | 3 | 1 | 0 | 0 | 75/25 (remove other entries) |
-| Anthropic only | 0 | 0 | 0 | 1 | 100% direct (remove other entries) |
+| Scenario | DigitalOcean | Bedrock | Anthropic | Result |
+|----------|--------------|---------|-----------|--------|
+| Default (current) | 6 | 2 | 2 | 60% DO, 20% each AWS/Anthropic |
+| Equal credits | 1 | 1 | 1 | ~33% each |
+| DO only | 1 | 0 | 0 | 100% DO (remove other entries) |
+| DO + Anthropic | 3 | 0 | 1 | 75/25 (remove Bedrock entries) |
+| Anthropic only | 0 | 0 | 1 | 100% direct (remove other entries) |
 
 To change the ratio, edit `litellm-config.yaml` and restart:
 

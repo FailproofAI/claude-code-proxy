@@ -1,8 +1,8 @@
 # litellm_config.yaml
 #
 # Model names match what Claude Code sends to the API (firstParty model IDs).
-# Each model has Anthropic, Bedrock, Vertex AI, and DigitalOcean deployments
-# under the same name.
+# Each model has Anthropic, Bedrock, and DigitalOcean deployments under the
+# same name.
 # The router load-balances within each group with automatic failover on errors.
 
 model_list:
@@ -10,9 +10,15 @@ model_list:
   # ── Claude Opus 4.6 ────────────────────────────────────────────────────────
   - model_name: claude-opus-4-6
     litellm_params:
+      model: gradient_ai/anthropic-claude-opus-4.6
+      api_key: os.environ/GRADIENT_AI_API_KEY
+      weight: 6
+
+  - model_name: claude-opus-4-6
+    litellm_params:
       model: anthropic/claude-opus-4-6
       api_key: os.environ/ANTHROPIC_API_KEY
-      weight: 1
+      weight: 2
 
   - model_name: claude-opus-4-6
     litellm_params:
@@ -20,27 +26,20 @@ model_list:
       aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
       aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
       aws_region_name: os.environ/AWS_REGION
-      weight: 1
-
-  - model_name: claude-opus-4-6
-    litellm_params:
-      model: vertex_ai/claude-opus-4-6
-      vertex_project: os.environ/VERTEX_PROJECT
-      vertex_location: os.environ/VERTEX_LOCATION
-      weight: 6
-
-  - model_name: claude-opus-4-6
-    litellm_params:
-      model: gradient_ai/anthropic-claude-opus-4.6
-      api_key: os.environ/GRADIENT_AI_API_KEY
       weight: 2
 
   # ── Claude Sonnet 4.6 ──────────────────────────────────────────────────────
   - model_name: claude-sonnet-4-6
     litellm_params:
+      model: gradient_ai/anthropic-claude-4.6-sonnet
+      api_key: os.environ/GRADIENT_AI_API_KEY
+      weight: 6
+
+  - model_name: claude-sonnet-4-6
+    litellm_params:
       model: anthropic/claude-sonnet-4-6
       api_key: os.environ/ANTHROPIC_API_KEY
-      weight: 1
+      weight: 2
 
   - model_name: claude-sonnet-4-6
     litellm_params:
@@ -48,27 +47,20 @@ model_list:
       aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
       aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
       aws_region_name: os.environ/AWS_REGION
-      weight: 1
-
-  - model_name: claude-sonnet-4-6
-    litellm_params:
-      model: vertex_ai/claude-sonnet-4-6
-      vertex_project: os.environ/VERTEX_PROJECT
-      vertex_location: os.environ/VERTEX_LOCATION
-      weight: 6
-
-  - model_name: claude-sonnet-4-6
-    litellm_params:
-      model: gradient_ai/anthropic-claude-4.6-sonnet
-      api_key: os.environ/GRADIENT_AI_API_KEY
       weight: 2
 
   # ── Claude Haiku 4.5 ───────────────────────────────────────────────────────
   - model_name: claude-haiku-4-5-20251001
     litellm_params:
+      model: gradient_ai/anthropic-claude-haiku-4.5
+      api_key: os.environ/GRADIENT_AI_API_KEY
+      weight: 6
+
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
       model: anthropic/claude-haiku-4-5-20251001
       api_key: os.environ/ANTHROPIC_API_KEY
-      weight: 1
+      weight: 2
 
   - model_name: claude-haiku-4-5-20251001
     litellm_params:
@@ -76,19 +68,6 @@ model_list:
       aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
       aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
       aws_region_name: os.environ/AWS_REGION
-      weight: 1
-
-  - model_name: claude-haiku-4-5-20251001
-    litellm_params:
-      model: vertex_ai/claude-haiku-4-5@20251001
-      vertex_project: os.environ/VERTEX_PROJECT
-      vertex_location: os.environ/VERTEX_LOCATION
-      weight: 6
-
-  - model_name: claude-haiku-4-5-20251001
-    litellm_params:
-      model: gradient_ai/anthropic-claude-haiku-4.5
-      api_key: os.environ/GRADIENT_AI_API_KEY
       weight: 2
 
 general_settings:
